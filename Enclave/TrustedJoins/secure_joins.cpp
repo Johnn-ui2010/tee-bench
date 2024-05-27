@@ -41,6 +41,8 @@ static struct algorithm_t sgx_algorithms[] = {
         {"PHT", PHT},
         {"NPO_st", NPO_st},
         {"NL", NL},
+        {"NL_simd_sse", NL_simd_sse},            //Adding a simd version of nested loop. Be careful. Here is only for native_compiling.
+        {"NL_simd_avx2", NL_simd_avx2}, 
         {"INL", INL},
         {"RJ", RJ},
         {"RHO", RHO},

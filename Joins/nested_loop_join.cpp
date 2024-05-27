@@ -134,7 +134,7 @@ void * nlj_simd_sse_thread(void * param) {
         //__m128i  args_r_tmp = _mm_set1_epi32(55); // Delete it later.
         __m128  args_r_tmp = _mm_set1_ps(args->relR[i].key);
         //logger(INFO, "args_r_tmp %f %f %f %f", args_r_tmp[0], args_r_tmp[1], args_r_tmp[2],args_r_tmp[3] );
-        int32_t j = 0;
+        uint64_t j = 0;
         for ( j=0; j < args->numS/4; j++)
         
         {   /*if (args->relR[i].key == args->relS[j].key)
@@ -144,7 +144,7 @@ void * nlj_simd_sse_thread(void * param) {
             //logger(INFO, "j: %d\n", j);
             //logger(INFO, "res before: %d\n", results);
             
-            __m128 args_s_tmp =  _mm_set_ps(args->relS[4*j].key, args->relS[(4*j)+1].key, args->relS[(4*j)+2].key,args->relS[(4*j)+3].key );
+            __m128 args_s_tmp =  _mm_set_ps( (float) args->relS[4*j].key, (float) args->relS[(4*j)+1].key, (float) args->relS[(4*j)+2].key, (float) args->relS[(4*j)+3].key );
             //logger(INFO, "args_s_tmp %f %f %f %f", args_s_tmp[0], args_s_tmp[1], args_s_tmp[2],args_s_tmp[3] );
             const __m128 eq = _mm_cmpeq_ps( args_r_tmp , args_s_tmp );
             results += (!!eq[0] + !!eq[1] + !!eq[2] + !!eq[3]);
@@ -154,10 +154,10 @@ void * nlj_simd_sse_thread(void * param) {
             //logger(INFO, "res after: %d\n", results);
         }
         //logger(INFO, "j outside: %d, %d\n", j, 4 * j);
-        int32_t rest = args->numS -  4 * j ;
+        uint64_t rest = args->numS -  4 * j ;
         //logger(INFO, "rest: %d\n", rest); 
         if( rest  > 0 ){
-            for(int32_t m=args->numS-rest; m< args->numS; m++){
+            for(uint64_t m=args->numS-rest; m< args->numS; m++){
                 if (args->relR[i].key == args->relS[m].key){
                     results++;
                     //logger(INFO, "m: %d, res: %d, key: %d\n", m, results, args->relR[i].key);
@@ -241,7 +241,7 @@ void * nlj_simd_avx2_thread(void * param) {
         //__m128i  args_r_tmp = _mm_set1_epi32(55); // Delete it later.
         __m256  args_r_tmp = _mm256_set1_ps(args->relR[i].key);
         //logger(INFO, "args_r_tmp %f %f %f %f", args_r_tmp[0], args_r_tmp[1], args_r_tmp[2],args_r_tmp[3] );
-        int32_t j = 0;
+        uint64_t j = 0;
         for ( j=0; j < args->numS/8; j++)
         
         {   /*if (args->relR[i].key == args->relS[j].key)
@@ -251,8 +251,8 @@ void * nlj_simd_avx2_thread(void * param) {
             //logger(INFO, "j: %d\n", j);
             //logger(INFO, "res before: %d\n", results);
             
-            __m256 args_s_tmp =  _mm256_set_ps(args->relS[8*j].key, args->relS[(8*j)+1].key, args->relS[(8*j)+2].key,args->relS[(8*j)+3].key,
-                    args->relS[(8*j)+4].key, args->relS[(8*j)+5].key, args->relS[(8*j)+6].key,args->relS[(8*j)+7].key );
+            __m256 args_s_tmp =  _mm256_set_ps((float) args->relS[8*j].key, (float) args->relS[(8*j)+1].key, (float) args->relS[(8*j)+2].key, (float) args->relS[(8*j)+3].key,
+                    (float) args->relS[(8*j)+4].key, (float) args->relS[(8*j)+5].key, (float) args->relS[(8*j)+6].key, (float) args->relS[(8*j)+7].key );
             //logger(INFO, "args_s_tmp %f %f %f %f", args_s_tmp[0], args_s_tmp[1], args_s_tmp[2],args_s_tmp[3] );
             const __m256i eq = _mm256_cmpeq_epi32( _mm256_castps_si256(args_r_tmp) , _mm256_castps_si256(args_s_tmp) );
             results += (!!eq[0] + !!eq[1] + !!eq[2] + !!eq[3]);
@@ -262,10 +262,10 @@ void * nlj_simd_avx2_thread(void * param) {
             //logger(INFO, "res after: %d\n", results);
         }
         //logger(INFO, "j outside: %d, %d\n", j, 4 * j);
-        int32_t rest = args->numS -  8 * j ;
+        uint64_t rest = args->numS -  8 * j ;
         //logger(INFO, "rest: %d\n", rest); 
         if( rest  > 0 ){
-            for(int32_t m=args->numS-rest; m< args->numS; m++){
+            for(uint64_t m=args->numS-rest; m< args->numS; m++){
                 if (args->relR[i].key == args->relS[m].key){
                     results++;
                     //logger(INFO, "m: %d, res: %d, key: %d\n", m, results, args->relR[i].key);
