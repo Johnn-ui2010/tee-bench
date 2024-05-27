@@ -1,0 +1,57 @@
+TEEBench tests with unique numbers: My NL_simd_sse version slower than current NL version.
+But with non unique values My NL_simd_sse can be faster.
+
+johnhas@john-TPLAPTOP:~/john_tee_bench/tee-bench$ ./app -a NL_simd_sse -r 700 -s 
+500
+[  0.0000][ INFO] Welcome from native!
+[  0.0001][DEBUG] Number of threads = 2 (N/A for every algorithm)
+[  0.0001][ INFO] Build relation R with size = 0.01 MB (700 tuples)
+[  0.0001][DEBUG] DONE
+[  0.0001][ INFO] Build relation S with size = 0.00 MB (500 tuples)
+[  0.0001][ INFO] tableR
+
+[  0.0002][DEBUG] DONE
+[  0.0002][ INFO] Running algorithm NL_simd_sse
+[  0.0009][DEBUG] Total input tuples : 1200
+[  0.0009][DEBUG] Result tuples : 500
+[  0.0009][DEBUG] Phase Join (cycles) : 1707653
+[  0.0009][DEBUG] Cycles-per-tuple : 1423.0442
+[  0.0009][ INFO] Total join runtime: 0.00s
+[  0.0009][ INFO] Matches = 500
+johnhas@john-TPLAPTOP:~/john_tee_
+johnhas@john-TPLAPTOP:~/john_tee_bench/tee-bench$ ./app -a NL_simd_sse -t "example.txt" -s 60
+[  0.0000][ INFO] Welcome from native!
+[  0.0000][DEBUG] Number of threads = 2 (N/A for every algorithm)
+[  0.0000][ INFO] Build relation R from file example.txt
+[  0.0000][DEBUG] File example.txt has 5 lines
+[  0.0001][DEBUG] DONE
+[  0.0001][ INFO] Build relation S with size = 0.00 MB (60 tuples)
+[  0.0001][ INFO] tableR
+
+[  0.0001][DEBUG] DONE
+[  0.0001][ INFO] Running algorithm NL_simd_sse
+[  0.0001][DEBUG] Total input tuples : 65
+[  0.0001][DEBUG] Result tuples : 60
+[  0.0001][DEBUG] Phase Join (cycles) : 128697
+[  0.0001][DEBUG] Cycles-per-tuple : 1979.9538
+[  0.0001][ INFO] Total join runtime: 0.00s
+[  0.0001][ INFO] Matches = 60
+----------
+
+johnhas@john-TPLAPTOP:~/john_tee_bench/tee-bench$ ./app -a NL -t "example.txt" -s 60
+[  0.0000][ INFO] Welcome from native!
+[  0.0001][DEBUG] Number of threads = 2 (N/A for every algorithm)
+[  0.0001][ INFO] Build relation R from file example.txt
+[  0.0001][DEBUG] File example.txt has 5 lines
+[  0.0002][DEBUG] DONE
+[  0.0002][ INFO] Build relation S with size = 0.00 MB (60 tuples)
+[  0.0002][ INFO] tableR
+
+[  0.0002][DEBUG] DONE
+[  0.0002][ INFO] Running algorithm NL
+[  0.0003][DEBUG] Total input tuples : 65
+[  0.0003][DEBUG] Result tuples : 60
+[  0.0003][DEBUG] Phase Join (cycles) : 294682
+[  0.0003][DEBUG] Cycles-per-tuple : 4533.5692
+[  0.0004][ INFO] Total join runtime: 0.00s
+[  0.0004][ INFO] Matches = 60

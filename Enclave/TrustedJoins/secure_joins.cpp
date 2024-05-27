@@ -7,16 +7,10 @@
 #include "CHTJoinWrapper.hpp"
 #include "radix_sortmerge_join.h"
 #include <sgx_tseal.h>
-#include <stitch/StitchJoin.h>
-#include <tlibc/mbusafecrt.h>
-#include <grace/grace_join.h>
 #include <mway/sortmergejoin_multiway.h>
-#include "obliv_join.h"
-#include "opaque_join.h"
-#include "oblidb_join.h"
+
 #include "parallel_sortmerge_join.h"
 #include "util.h"
-#include "MCJoin.h"
 #include "rho_atomic/radix_join_atomic.h"
 
 extern char aad_mac_text[256];
@@ -43,63 +37,6 @@ CHT(struct table_t * relR, struct table_t * relS, int nthreads)
     return joinresult;
 }
 
-result_t*
-STJ(struct table_t * relR, struct table_t * relS, int nthreads)
-{
-    result_t * joinresult;
-    StitchJoin * stj = new StitchJoin();
-    stj->STJ(relR, relS, nthreads);
-    return joinresult;
-}
-
-result_t*
-MCJ(struct table_t * relR, struct table_t * relS, int nthreads)
-{
-    result_t * joinresult = nullptr;
-    SMetrics metrics;
-    uint32_t memoryConstraintMB = nthreads;
-    uint32_t packedPartitionMemoryCardinality = 16000000;
-    uint32_t flipFlopCardinality = 16000000;
-    uint32_t bitRadixLength = 24;
-    uint32_t maxBitsPerFlipFlopPass = 8;
-    uint32_t outputBufferCardinality = 1000;
-    // parse arguments
-    CMemoryManagement memManagement;
-    logger(DEBUG, "Memory constraint %d MB", nthreads);
-
-    if (memoryConstraintMB != 0)
-    {
-        if(memManagement.optimiseForMemoryConstraint(relR->num_tuples, memoryConstraintMB, bitRadixLength))
-        {
-            // Based on the results, we need to change our options settings
-            packedPartitionMemoryCardinality = memManagement.getRIdealTuples();
-            flipFlopCardinality = memManagement.getSIdealTuples();
-            metrics.r_bias = memManagement.getRBias();
-        }
-        else
-        {
-            // It didn't work - this is usually because the histogram is simply too large to fit within the given memory constraint
-            logger(ERROR, "Unable to allocate memory (histogram too large for constraint?)");
-            ocall_exit(-1);
-        }
-    }
-
-    CMemoryManagement memoryManagement;
-
-
-    MCJoin mcj = MCJoin();
-    mcj.doMCJoin(relR,
-                 relS,
-                 &metrics,
-                 bitRadixLength,
-                 maxBitsPerFlipFlopPass,
-                 nthreads,
-                 flipFlopCardinality,
-                 packedPartitionMemoryCardinality,
-                 outputBufferCardinality);
-    return joinresult;
-}
-
 static struct algorithm_t sgx_algorithms[] = {
         {"PHT", PHT},
         {"NPO_st", NPO_st},
@@ -111,14 +48,9 @@ static struct algorithm_t sgx_algorithms[] = {
         {"PSM", PSM},
         {"RSM", RSM},
         {"CHT", CHT},
-        {"OBLI", oblidb_join},
-        {"OPAQ", opaque_join},
-        {"OJ", OJ_wrapper},
-        {"RHOBLI", rhobli_join},
-        {"MCJ", MCJ},
-        {"GHT", GHT},
+        {"RHOBLI", rhobli_join}, // Maybe not nessecary
         {"MWAY", MWAY},
-        {"RHO_seal_buffer", RHO_seal_buffer},
+        {"RHO_seal_buffer", RHO_seal_buffer}, // Maybe not nessecary
         {"RHO_atomic", RHO_atomic}
 };
 

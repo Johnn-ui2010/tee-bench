@@ -2,12 +2,25 @@
 #include "btree.h"
 #include <pthread.h>
 #include "data-types.h"
+
 #ifdef NATIVE_COMPILATION
+
 #include "Logger.h"
 #include "native_ocalls.h"
+#include <immintrin.h> //AVX 1 and 2 (256bit) and AVX512 (includes all SSE, too)
+
 #else
 #include "Enclave_t.h"
 #include "Enclave.h"
+
+#include "../simd/mmintrin.h"
+#include "../simd/xmmintrin.h"
+#include "../simd/emmintrin.h"
+#include "../simd/pmmintrin.h"
+#include "../simd/tmmintrin.h"
+#include "../simd/avxintrin.h"
+#include "../simd/avx2intrin.h"
+#include "../simd/avx512fintrin.h" 
 #endif
 
 typedef struct arg_nl_t {
@@ -42,6 +55,8 @@ void * nlj_thread(void * param) {
             if (args->relR[i].key == args->relS[j].key)
             {
                 results++;
+                //logger(INFO, "res: %d, key: %d\n", results, args->relR[i].key);
+                //logger(INFO, "res: %d\n", results);
             }
         }
     }
@@ -78,6 +93,220 @@ result_t* NL (struct table_t* relR, struct table_t* relS, int nthreads) {
         args[i].result = 0;
 
         int rv = pthread_create(&tid[i], nullptr, nlj_thread, (void*)&args[i]);
+        if (rv){
+            logger(ERROR, "return code from pthread_create() is %d\n", rv);
+            ocall_exit(-1);
+        }
+    }
+
+    for (int i = 0; i < nthreads; i++) {
+        pthread_join(tid[i], NULL);
+        result += args[i].result;
+    }
+
+#ifdef PCM_COUNT
+    ocall_get_system_counter_state("Join", 0);
+#endif
+
+#ifndef NO_TIMING
+    ocall_stopTimer(&timer1);
+    print_timing(timer1, relR->num_tuples + relS->num_tuples, result);
+#endif
+
+    result_t * joinresult;
+    joinresult = (result_t *) malloc(sizeof(result_t));
+    joinresult->totalresults = result;
+    joinresult->nthreads = nthreads;
+    return joinresult;
+}
+
+/* Adding SIMD SSE version of nested loop join.
+* Problem: Too many calculations, so the SIMD version is even slower.
+*/
+void * nlj_simd_sse_thread(void * param) {
+    arg_nl_t *args = (arg_nl_t*) param;
+    uint64_t results = 0;
+    
+    //#pragma omp simd // First simple try with SIMD pragras
+    for (int32_t i = 0; i < args->numR; i++)
+    {   
+        //logger(INFO, "i: %d, key: %d\n", i, args->relR[i].key);
+        //__m128i  args_r_tmp = _mm_set1_epi32(55); // Delete it later.
+        __m128  args_r_tmp = _mm_set1_ps(args->relR[i].key);
+        //logger(INFO, "args_r_tmp %f %f %f %f", args_r_tmp[0], args_r_tmp[1], args_r_tmp[2],args_r_tmp[3] );
+        int32_t j = 0;
+        for ( j=0; j < args->numS/4; j++)
+        
+        {   /*if (args->relR[i].key == args->relS[j].key)
+            {
+                results++ ;
+            }*/
+            //logger(INFO, "j: %d\n", j);
+            //logger(INFO, "res before: %d\n", results);
+            
+            __m128 args_s_tmp =  _mm_set_ps(args->relS[4*j].key, args->relS[(4*j)+1].key, args->relS[(4*j)+2].key,args->relS[(4*j)+3].key );
+            //logger(INFO, "args_s_tmp %f %f %f %f", args_s_tmp[0], args_s_tmp[1], args_s_tmp[2],args_s_tmp[3] );
+            const __m128 eq = _mm_cmpeq_ps( args_r_tmp , args_s_tmp );
+            results += (!!eq[0] + !!eq[1] + !!eq[2] + !!eq[3]);
+            //logger(INFO,"no !!, eq: %f %f %f %f\n",eq[0], eq[1], eq[2], eq[3]);
+            //logger(INFO,"eq: %d %d %d %d\n",!!eq[0], !!eq[1], !!eq[2], !!eq[3]);
+
+            //logger(INFO, "res after: %d\n", results);
+        }
+        //logger(INFO, "j outside: %d, %d\n", j, 4 * j);
+        int32_t rest = args->numS -  4 * j ;
+        //logger(INFO, "rest: %d\n", rest); 
+        if( rest  > 0 ){
+            for(int32_t m=args->numS-rest; m< args->numS; m++){
+                if (args->relR[i].key == args->relS[m].key){
+                    results++;
+                    //logger(INFO, "m: %d, res: %d, key: %d\n", m, results, args->relR[i].key);
+                }
+            }
+        }
+    }
+
+    args->result = results;
+    return nullptr;
+}
+
+result_t* NL_simd_sse (struct table_t* relR, struct table_t* relS, int nthreads) {
+    (void) (nthreads);
+
+    int64_t result = 0;
+    pthread_t tid[nthreads];
+    arg_nl_t args[nthreads];
+    uint64_t numperthr[2];
+#ifndef NO_TIMING
+    uint64_t timer1;
+    ocall_startTimer(&timer1);
+#endif
+#ifdef PCM_COUNT
+    ocall_set_system_counter_state("Start join phase");
+#endif
+
+    numperthr[0] = relR->num_tuples / nthreads;
+    numperthr[1] = relS->num_tuples / nthreads;
+
+    //#pragma omp simd // it doesn't help and makes even slower.
+    for (int i = 0; i < nthreads; i++) {
+        args[i].my_tid = i;
+        args[i].relR = relR->tuples + i * numperthr[0];
+        args[i].relS = relS->tuples;
+        args[i].numR = (i == (nthreads-1)) ?
+                       (relR->num_tuples - i * numperthr[0]) : numperthr[0];
+        args[i].numS = relS->num_tuples;
+        args[i].result = 0;
+
+        int rv = pthread_create(&tid[i], nullptr, nlj_simd_sse_thread, (void*)&args[i]);
+        if (rv){
+            logger(ERROR, "return code from pthread_create() is %d\n", rv);
+            ocall_exit(-1);
+        }
+    }
+
+    for (int i = 0; i < nthreads; i++) {
+        pthread_join(tid[i], NULL);
+        result += args[i].result;
+    }
+
+#ifdef PCM_COUNT
+    ocall_get_system_counter_state("Join", 0);
+#endif
+
+#ifndef NO_TIMING
+    ocall_stopTimer(&timer1);
+    print_timing(timer1, relR->num_tuples + relS->num_tuples, result);
+#endif
+
+    result_t * joinresult;
+    joinresult = (result_t *) malloc(sizeof(result_t));
+    joinresult->totalresults = result;
+    joinresult->nthreads = nthreads;
+    return joinresult;
+}
+
+
+/* Adding SIMD AVX2 version of nested loop join.
+* Problem: Too many calculations, so the SIMD version is even slower.
+*/
+void * nlj_simd_avx2_thread(void * param) {
+    arg_nl_t *args = (arg_nl_t*) param;
+    uint64_t results = 0;
+    
+    //#pragma omp simd // First simple try with SIMD pragras
+    for (int32_t i = 0; i < args->numR; i++)
+    {   
+        //logger(INFO, "i: %d, key: %d\n", i, args->relR[i].key);
+        //__m128i  args_r_tmp = _mm_set1_epi32(55); // Delete it later.
+        __m256  args_r_tmp = _mm256_set1_ps(args->relR[i].key);
+        //logger(INFO, "args_r_tmp %f %f %f %f", args_r_tmp[0], args_r_tmp[1], args_r_tmp[2],args_r_tmp[3] );
+        int32_t j = 0;
+        for ( j=0; j < args->numS/8; j++)
+        
+        {   /*if (args->relR[i].key == args->relS[j].key)
+            {
+                results++ ;
+            }*/
+            //logger(INFO, "j: %d\n", j);
+            //logger(INFO, "res before: %d\n", results);
+            
+            __m256 args_s_tmp =  _mm256_set_ps(args->relS[8*j].key, args->relS[(8*j)+1].key, args->relS[(8*j)+2].key,args->relS[(8*j)+3].key,
+                    args->relS[(8*j)+4].key, args->relS[(8*j)+5].key, args->relS[(8*j)+6].key,args->relS[(8*j)+7].key );
+            //logger(INFO, "args_s_tmp %f %f %f %f", args_s_tmp[0], args_s_tmp[1], args_s_tmp[2],args_s_tmp[3] );
+            const __m256i eq = _mm256_cmpeq_epi32( _mm256_castps_si256(args_r_tmp) , _mm256_castps_si256(args_s_tmp) );
+            results += (!!eq[0] + !!eq[1] + !!eq[2] + !!eq[3]);
+            //logger(INFO,"no !!, eq: %f %f %f %f\n",eq[0], eq[1], eq[2], eq[3]);
+            //logger(INFO,"eq: %d %d %d %d\n",!!eq[0], !!eq[1], !!eq[2], !!eq[3]);
+
+            //logger(INFO, "res after: %d\n", results);
+        }
+        //logger(INFO, "j outside: %d, %d\n", j, 4 * j);
+        int32_t rest = args->numS -  8 * j ;
+        //logger(INFO, "rest: %d\n", rest); 
+        if( rest  > 0 ){
+            for(int32_t m=args->numS-rest; m< args->numS; m++){
+                if (args->relR[i].key == args->relS[m].key){
+                    results++;
+                    //logger(INFO, "m: %d, res: %d, key: %d\n", m, results, args->relR[i].key);
+                }
+            }
+        }
+    }
+
+    args->result = results;
+    return nullptr;
+}
+
+result_t* NL_simd_avx2 (struct table_t* relR, struct table_t* relS, int nthreads) {
+    (void) (nthreads);
+
+    int64_t result = 0;
+    pthread_t tid[nthreads];
+    arg_nl_t args[nthreads];
+    uint64_t numperthr[2];
+#ifndef NO_TIMING
+    uint64_t timer1;
+    ocall_startTimer(&timer1);
+#endif
+#ifdef PCM_COUNT
+    ocall_set_system_counter_state("Start join phase");
+#endif
+
+    numperthr[0] = relR->num_tuples / nthreads;
+    numperthr[1] = relS->num_tuples / nthreads;
+
+    //#pragma omp simd // it doesn't help and makes even slower.
+    for (int i = 0; i < nthreads; i++) {
+        args[i].my_tid = i;
+        args[i].relR = relR->tuples + i * numperthr[0];
+        args[i].relS = relS->tuples;
+        args[i].numR = (i == (nthreads-1)) ?
+                       (relR->num_tuples - i * numperthr[0]) : numperthr[0];
+        args[i].numS = relS->num_tuples;
+        args[i].result = 0;
+
+        int rv = pthread_create(&tid[i], nullptr, nlj_simd_avx2_thread, (void*)&args[i]);
         if (rv){
             logger(ERROR, "return code from pthread_create() is %d\n", rv);
             ocall_exit(-1);

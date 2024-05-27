@@ -32,18 +32,59 @@ result_t * CHT(relation_t *relR, relation_t* relS, int nthreads)
 }
 
 static struct algorithm_t algorithms[] = {
-        {"PHT", PHT},
-        {"NPO_st", NPO_st},
+    // Some joins firstly deactivated.
+        //{"PHT", PHT},
         {"NL", NL},
-        {"RJ", RJ},
-        {"PSM", PSM},
-        {"RHO", RHO},
-        {"RHT", RHT},
-        {"RSM", RSM},
-        {"CHT", CHT},
+        {"NL_simd_sse", NL_simd_sse},            //Adding a simd version of nested loop. Be careful. Here is only for native_compiling.
+        {"NL_simd_avx2", NL_simd_avx2}, 
+        {"RJ", RJ}, // Not in this paper
+        //{"PSM", PSM},
+        //{"RHO", RHO},
+        //{"RHT", RHT},
+        //{"RSM", RSM},
+        //{"CHT", CHT},
         {"INL", INL},
-        {"MWAY", MWAY}
+        //{"MWAY", MWAY}
 };
+
+void print_table(struct table_t table){
+    /*struct row_t *row_tmp = table.tuples;
+    
+    logger(INFO, "key | payload\n");
+    while(row_tmp != NULL){
+        logger(INFO, "%lu | %lu\n", row_tmp->key, row_tmp->payload);
+        row_tmp = row_tmp[0];
+    }
+    */
+    logger(INFO, "table \n");
+    logger(INFO,".. is sorted: %d\n", table.sorted);
+    logger(INFO, ".. has %d ratio_holes\n", table.ratio_holes);
+    logger(INFO, "key | payload\n");
+    for(int32_t i=0; i<table.num_tuples; i++ ){
+        logger(INFO, "%lu | %lu\n", table.tuples[i].key, table.tuples[i].payload);
+    }
+    logger(INFO, "---\n");
+
+}
+
+void print_outp_table(struct result_t *output){
+    
+    logger(INFO, "table \n");
+    logger(INFO, "key | payload\n");
+    logger(INFO, "number of threads %lu\n", output->nthreads);
+    logger(INFO, "%p\n", output->resultlist); //(nil)
+
+    if(output->resultlist != NULL){
+        for(int32_t i=0; i<output->nthreads; i++ ){
+            logger(INFO, "%lu | %lu\n", output->resultlist[i].threadid, output->resultlist[i].nresults);
+            logger(INFO, "%p\n", output->resultlist[i].results);
+        }
+    
+       
+    }
+    logger(INFO, "---\n");
+
+}
 
 int main(int argc, char *argv[]) {
     clock_gettime(CLOCK_MONOTONIC, &ts_start);
@@ -117,14 +158,24 @@ int main(int argc, char *argv[]) {
             create_relation_fk(&tableS, params.s_size, params.r_size, params.sort_s);
         }
     }
-    logger(DBG, "DONE");
+    
+    logger(INFO, "tableR\n");
+    //print_table(tableR);
+    /*logger(INFO, "tableS\n");
+    print_table(tableS);
+    */
 
+    logger(DBG, "DONE");
+    
     logger(INFO, "Running algorithm %s", params.algorithm->name);
 
     clock_t start = clock();
     result_t* matches = params.algorithm->join(&tableR, &tableS, params.nthreads);
     logger(INFO, "Total join runtime: %.2fs", (clock() - start)/ (float)(CLOCKS_PER_SEC));
     logger(INFO, "Matches = %lu", matches->totalresults);
+
+    //print_outp_table(matches);
+    //logger(INFO, "Table Res (first) %lu %lu", matches->resultlist->results->key, matches->resultlist->results->next->key );
     delete_relation(&tableR);
     delete_relation(&tableS);
 }
