@@ -139,7 +139,7 @@ else
         App_C_Flags += -DNDEBUG -UEDEBUG -UDEBUG
 endif
 
-App_Cpp_Flags := $(App_C_Flags) -mavx2 -mavx512f 
+App_Cpp_Flags := $(App_C_Flags) -mavx2
 App_Link_Flags := -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -lpthread -ldl -lgomp $(PCM_LINK)
 
 App_Cpp_Objects := $(App_Cpp_Files:.cpp=.o)
@@ -189,7 +189,7 @@ else
 	Enclave_C_Flags += -fstack-protector-strong
 endif
 
-Enclave_Cpp_Flags := $(Enclave_C_Flags) -nostdinc++ -mavx2 -mavx512f 
+Enclave_Cpp_Flags := $(Enclave_C_Flags) -nostdinc++ -mavx2
 
 # Enable the security flags
 Enclave_Security_Link_Flags := -Wl,-z,relro,-z,now,-z,noexecstack
@@ -278,7 +278,7 @@ native:
  		-IJoins/oblidb -Ilib/pcm -IJoins/psm -IJoins/mcjoin -IJoins/mway \
 		$(wildcard App/Lib/*.cpp) $(wildcard App/Lib/*.c) $(INCLUDE_SOURCES_CPP) $(INCLUDE_SOURCES_C) \
 		native.cpp $(JOIN_SOURCES_C) $(JOIN_SOURCES_CPP) \
-		-O3 -o app -lssl -lcrypto -lpthread -ldl $(PCM_LINK) -DNATIVE_COMPILATION -mavx2 -mavx512f
+		-O3 -o app -lssl -lcrypto -lpthread -ldl $(PCM_LINK) -DNATIVE_COMPILATION -mavx2  
 
 .config_$(Build_Mode)_$(SGX_ARCH):
 	@rm -f .config_* $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/Enclave_u.* $(Enclave_Cpp_Objects) Enclave/Enclave_t.*

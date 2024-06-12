@@ -44,16 +44,17 @@ static struct algorithm_t sgx_algorithms[] = {
         {"NL_simd_sse", NL_simd_sse},            //Adding a simd version of nested loop. Be careful. Here is only for native_compiling.
         {"NL_simd_avx2", NL_simd_avx2}, 
         {"INL", INL},
-        {"RJ", RJ},
-        {"RHO", RHO},
-        {"RHT", RHT},
+        {"INL_simd_sse", INL_simd_sse},
+        //{"RJ", RJ},
+        //{"RHO", RHO},
+        //{"RHT", RHT},
         {"PSM", PSM},
-        {"RSM", RSM},
+        //{"RSM", RSM},
         {"CHT", CHT},
-        {"RHOBLI", rhobli_join}, // Maybe not nessecary
-        {"MWAY", MWAY},
-        {"RHO_seal_buffer", RHO_seal_buffer}, // Maybe not nessecary
-        {"RHO_atomic", RHO_atomic}
+        //{"RHOBLI", rhobli_join}, // Maybe not nessecary
+        //{"MWAY", MWAY},
+        //{"RHO_seal_buffer", RHO_seal_buffer}, // Maybe not nessecary
+        //{"RHO_atomic", RHO_atomic}
 };
 
 uint8_t* unseal_rel(const uint8_t *sealed_rel, size_t size)

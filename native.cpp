@@ -37,13 +37,14 @@ static struct algorithm_t algorithms[] = {
         {"NL", NL},
         {"NL_simd_sse", NL_simd_sse},            //Adding a simd version of nested loop. Be careful. Here is only for native_compiling.
         {"NL_simd_avx2", NL_simd_avx2}, 
-        {"RJ", RJ}, // Not in this paper
-        //{"PSM", PSM},
+        //{"RJ", RJ}, // Not in this paper
+        {"PSM", PSM},
         //{"RHO", RHO},
         //{"RHT", RHT},
         //{"RSM", RSM},
         //{"CHT", CHT},
         {"INL", INL},
+        {"INL_simd_sse", INL_simd_sse},                
         //{"MWAY", MWAY}
 };
 
@@ -82,6 +83,7 @@ void print_outp_table(struct result_t *output){
     
        
     }
+
     logger(INFO, "---\n");
 
 }

@@ -24,7 +24,8 @@ static int64_t merge(relation_t *relR, relation_t *relS)
     std::size_t tr_s = 0, gs_s = 0;
     logger(DBG, "Merge1");
     while ( tr_s < relR->num_tuples && gs_s < relS->num_tuples)
-    {
+    {   
+        //logger(DBG, "r no. %d, s no. %d\n", tr_s, gs_s );
         while (tr->key < gs->key)
         {
             tr++; tr_s++;
@@ -37,13 +38,18 @@ static int64_t merge(relation_t *relR, relation_t *relS)
         while (tr->key == gs->key)
         {
             ts = gs;
+            //logger(DBG, "In Eq: r no. %d, s no. %d\n", tr_s, gs_s );
             while (ts->key == tr->key)
-            {
+            {   
+                //logger(DBG, "Key joined %d\n", ts->key );
                 matches++;
                 ts++;
+                //logger(DBG,"after adding, ts pointer: %p\n", ts);
+                //logger(DBG, "After adding: ts key %d\n", ts->key );
             }
             tr++; tr_s++;
         }
+        //logger(DBG, "After loop: ts %d\n", ts->key );
         gs = ts;
     }
     logger(DBG, "Merge2");
